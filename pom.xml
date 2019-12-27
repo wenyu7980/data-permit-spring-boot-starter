@@ -9,9 +9,9 @@
         <version>2.2.2.RELEASE</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.wenyu</groupId>
+    <groupId>com.wenyu7980</groupId>
     <artifactId>data-permit-spring-boot-starter</artifactId>
-    <version>0.0.1</version>
+    <version>1.0.0</version>
     <name>data-permit-starter</name>
     <description>数据权限控制</description>
     <packaging>jar</packaging>

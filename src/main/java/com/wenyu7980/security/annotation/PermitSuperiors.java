@@ -1,4 +1,4 @@
-package com.wenyu.security.annotation;
+package com.wenyu7980.security.annotation;
 /**
  * Copyright wenyu
  *
@@ -18,17 +18,15 @@ package com.wenyu.security.annotation;
 import java.lang.annotation.*;
 
 /**
+ * 配置
  * @author:wenyu
  * @date:2019/12/18
  */
-@Target(ElementType.METHOD)
+@Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-public @interface PermitMethod {
-    /**
-     * 权限不足时异常提示语
-     * @return
-     */
-    String message() default "方法{1}访问{0}权限不足";
+public @interface PermitSuperiors {
+    /** 上级资源 */
+    PermitSuperior[] superiors() default {};
 }

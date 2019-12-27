@@ -2,7 +2,7 @@
 
 作者：**wenyu** wenyu7980@163.com
 
-> 该项目为Maven项目，同时也是Spring stater，是基于Spring AOP开发的一个数据权限控制框架。
+> 该项目为Maven项目，同时也是Spring stater，是基于Spring AOP开发的一个数据权限控制库。
 
 ### 什么是数据权限
 
@@ -10,11 +10,11 @@
 
 + 针对接口的权限控制
 
-  > 这种权限控制应用的比较广泛，例如RBAC，有很多的框架可以使用，比如Shiro，Spring Security等等。
+  > 这种权限控制应用的比较广泛，例如RBAC，有很多的库可以使用，比如Shiro，Spring Security等等。
 
 + 针对数据的权限控制
 
-  > 这种权限控制并没有很多的框架可以使用，原因是这种控制是和业务相关联的，不能和业务很好的解耦，所以，需要嵌入到代码中。
+  > 这种权限控制并没有很多的库可以使用，原因是这种控制是和业务相关联的，不能和业务很好的解耦，所以，需要嵌入到代码中。
 
 这两种权限控制的区别：
 
@@ -24,13 +24,13 @@
 
 
 
-### 框架使用简介
+### 库使用简介
 
 #### 核心注解
 
 + EnableDataPermit
 
-  > 触发框架注入
+  > 触发库注入
 
 + PermitRoot
 
@@ -64,7 +64,7 @@
 
   > 方法注解
   >
-  > 配合接口Permittable使用，在findPermitById上使用，为AOP提供PointCut。
+  > 需要权限校验的方法上，方法返回值只能是none or one
   >
   > **message** 权限不足时错误信息
 
@@ -72,7 +72,7 @@
 
 + Permittable
 
-  > 数据获取接口，通过该接口的数据会被权限控制
+  > 数据获取接口，上级资源校验且上级资源的PermitConfig::isPrimitive为true时，需要通过该接口获取上级资源数据
   >
   > ```java
   > public interface Permittable<T, ID> {
@@ -89,7 +89,7 @@
   >      * @param id
   >      * @return
   >      */
-  >     T findPermitById(ID id);
+  >     Optional<T> findPermitById(ID id);
   > }
   > 
   > ```
@@ -126,7 +126,7 @@
 
 + PermissionInsufficientException
 
-  > 权限不足是抛出的异常
+  > 权限不足时，抛出的异常
 
 
 
@@ -145,8 +145,7 @@ public class User{
 
 @Service
 public class UserService implements Permittable<User,String> {
-    @PermitMethod
-    public User findPermitById(String id){
+    public Optional<User> findPermitById(String id){
         // 省略具体实现
         return user;
     }
@@ -167,7 +166,7 @@ public class Order{
 @Service
 public class OrderService implements Permittable<Order,String>{
     @PermitMethod
-    public Order findPermitById(String id){
+    public Optional<Order> findPermitById(String id){
         // 省略具体实现
         return order;
     }
@@ -197,7 +196,7 @@ public class Handler {
     private OrderService orderService;
     
     public Order getOrderById(String id){
-        return orderService.findPermitById(id);
+        return orderService.findPermitById(id).get();
     }
 }
 ```

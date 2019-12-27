@@ -1,9 +1,9 @@
-package com.wenyu.security.core;
+package com.wenyu7980.security.core;
 
-import com.wenyu.security.annotation.PermitMethod;
-import com.wenyu.security.annotation.PermitRoot;
-import com.wenyu.security.annotation.PermitSuperior;
-import com.wenyu.security.annotation.PermitSuperiors;
+import com.wenyu7980.security.annotation.PermitMethod;
+import com.wenyu7980.security.annotation.PermitRoot;
+import com.wenyu7980.security.annotation.PermitSuperior;
+import com.wenyu7980.security.annotation.PermitSuperiors;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
@@ -19,6 +19,7 @@ import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 /**
  * Copyright wenyu
  *
@@ -43,8 +44,6 @@ import java.util.Objects;
 @Component
 @Aspect
 public class PermitAspect implements ApplicationContextAware {
-    /** 是否允许 */
-    private static final ThreadLocal<Boolean> ALLOW = new ThreadLocal<>();
     /** 保存数据访问bean */
     private Map<String, Permittable> permittableMap;
 
@@ -72,21 +71,18 @@ public class PermitAspect implements ApplicationContextAware {
             throws IllegalAccessException, NoSuchMethodException,
             NoSuchFieldException, InstantiationException,
             InvocationTargetException {
-        // 判断是否是最上层调用
-        boolean topFlag = false;
-        if (Objects.isNull(ALLOW.get())) {
-            topFlag = true;
-            ALLOW.set(false);
+
+        if (Objects.isNull(ret)) {
+            return;
         }
-        this.check(ret);
-        if (topFlag) {
-            if (!ALLOW.get()) {
-                throw new PermissionInsufficientException(MessageFormat
-                        .format(permitMethod.message(), joinPoint.getArgs()[0],
-                                joinPoint.getSignature().getDeclaringType()
-                                        .getSimpleName()));
-            }
-            ALLOW.remove();
+        if (ret instanceof Optional && !((Optional) ret).isPresent()) {
+            return;
+        }
+        if (!this.checkPermit(ret)) {
+            throw new PermissionInsufficientException(MessageFormat
+                    .format(permitMethod.message(), joinPoint.getArgs()[0],
+                            joinPoint.getSignature().getDeclaringType()
+                                    .getSimpleName()));
         }
     }
 
@@ -99,12 +95,24 @@ public class PermitAspect implements ApplicationContextAware {
      * @throws InstantiationException
      * @throws InvocationTargetException
      * @throws NoSuchFieldException
+     * @return true: 允许访问
+     *         false: 不允许访问
      */
-    private void check(Object obj)
+    private boolean checkPermit(Object obj)
             throws IllegalAccessException, NoSuchMethodException,
             InstantiationException, InvocationTargetException,
             NoSuchFieldException {
-        assert obj != null;
+        if (Objects.isNull(obj)) {
+            return false;
+        }
+        // Optional 处理
+        if (obj instanceof Optional) {
+            if (!((Optional) obj).isPresent()) {
+                return false;
+            }
+            obj = ((Optional) obj).get();
+        }
+        // 数据类型
         Class<?> clazz = obj.getClass();
 
         // 遍历属性
@@ -118,8 +126,7 @@ public class PermitAspect implements ApplicationContextAware {
                 if (Objects.nonNull(field.get(obj))) {
                     if (this.permitUserCheck
                             .checkPermit(field.get(obj), root)) {
-                        ALLOW.set(true);
-                        return;
+                        return true;
                     }
                 }
             }
@@ -137,13 +144,15 @@ public class PermitAspect implements ApplicationContextAware {
                 }
                 if (value.getClass().isPrimitive() || value instanceof String) {
                     // 基本数据类型或者String类型
-                    this.checkSuperior(superior.getClass(), field.get(obj));
+                    if (this.checkSuperior(superior.getClass(),
+                            field.get(obj))) {
+                        return true;
+                    }
                 } else {
                     // 复杂数据类型
-                    this.check(field.get(obj));
-                }
-                if (ALLOW.get()) {
-                    return;
+                    if (this.checkPermit(field.get(obj))) {
+                        return true;
+                    }
                 }
             }
         }
@@ -151,27 +160,29 @@ public class PermitAspect implements ApplicationContextAware {
         PermitSuperiors superiors = obj.getClass()
                 .getAnnotation(PermitSuperiors.class);
         if (Objects.nonNull(superiors)) {
+            out:
             for (int i = 0; i < superiors.superiors().length; i++) {
                 PermitSuperior superior = superiors.superiors()[i];
                 // 获取参数
-                assert superior.names().length > 0 :
-                        clazz.getName() + "的PermitSuperior的names属性不能为空";
+                assert superior.names().length > 0 : MessageFormat
+                        .format("{0}的PermitSuperior的names属性不能为空",
+                                clazz.getName());
                 Object[] parameters = new Object[superior.names().length];
                 for (int j = 0; j < superior.names().length; j++) {
                     Field field = clazz.getDeclaredField(superior.names()[j]);
                     field.setAccessible(true);
                     if (Objects.isNull(field.get(obj))) {
-                        return;
+                        continue out;
                     }
                     parameters[j] = field.get(obj);
                 }
                 // 校验
-                this.checkSuperior(superior.clazz(), parameters);
-                if (ALLOW.get()) {
-                    return;
+                if (this.checkSuperior(superior.clazz(), parameters)) {
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     /**
@@ -183,9 +194,10 @@ public class PermitAspect implements ApplicationContextAware {
      * @throws InvocationTargetException
      * @throws InstantiationException
      */
-    private void checkSuperior(Class<?> clazz, Object... parameters)
+    private boolean checkSuperior(Class<?> clazz, Object... parameters)
             throws NoSuchMethodException, IllegalAccessException,
-            InvocationTargetException, InstantiationException {
+            InvocationTargetException, InstantiationException,
+            NoSuchFieldException {
         Permittable permittable = this.permittableMap.get(clazz.getName());
         Method method = permittable.getClass()
                 .getMethod("findPermitById", Object.class);
@@ -194,7 +206,7 @@ public class PermitAspect implements ApplicationContextAware {
         for (int j = 0; j < types.length; j++) {
             if (Objects.equals(((ParameterizedType) types[j]).getRawType(),
                     Permittable.class)) {
-                // 第二个泛型类型参数
+                // 第二个泛型类型参数为查询ID类型
                 actual = (Class<?>) ((ParameterizedType) types[j])
                         .getActualTypeArguments()[1];
                 break;
@@ -204,9 +216,9 @@ public class PermitAspect implements ApplicationContextAware {
         Constructor[] constructors = actual.getConstructors();
         for (int j = 0; j < constructors.length; j++) {
             if (constructors[j].getParameterCount() == parameters.length) {
-                permittable.findPermitById(
+                Optional optional = permittable.findPermitById(
                         constructors[j].newInstance(parameters));
-                return;
+                return this.checkPermit(optional);
             }
         }
         throw new RuntimeException(MessageFormat

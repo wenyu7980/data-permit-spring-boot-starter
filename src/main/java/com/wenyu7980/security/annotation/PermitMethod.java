@@ -1,4 +1,4 @@
-package com.wenyu.security.core;
+package com.wenyu7980.security.annotation;
 /**
  * Copyright wenyu
  *
@@ -15,32 +15,20 @@ package com.wenyu.security.core;
  * limitations under the License.
  */
 
-import com.wenyu.security.annotation.PermitRoot;
-import org.springframework.lang.NonNull;
+import java.lang.annotation.*;
 
 /**
- * 数据权限校验接口，用户需要实现
- * 以Bean的形式注入到框架中
- * 以Bean的形式注入到框架中
  * @author:wenyu
  * @date:2019/12/18
  */
-public interface PermitConfig {
-
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Inherited
+public @interface PermitMethod {
     /**
-     * 校验
-     * @param obj
-     * @param root
+     * 权限不足时异常提示语
      * @return
      */
-    boolean checkPermit(Object obj, PermitRoot root);
-
-    /**
-     * 是否是基础数据类型
-     * @param obj
-     * @return
-     */
-    default boolean isPrimitive(@NonNull Object obj) {
-        return obj.getClass().isPrimitive() || obj instanceof String;
-    }
+    String message() default "方法{1}访问{0}权限不足";
 }

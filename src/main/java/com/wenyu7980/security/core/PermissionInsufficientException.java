@@ -1,4 +1,4 @@
-package com.wenyu.security.core;
+package com.wenyu7980.security.core;
 /**
  * Copyright wenyu
  *
@@ -16,23 +16,12 @@ package com.wenyu.security.core;
  */
 
 /**
- * 权限控制接口
+ * 权限不足
  * @author:wenyu
- * @date:2019/12/18
+ * @date:2019/12/19
  */
-public interface Permittable<T, ID> {
-    /**
-     * 类型
-     * @return
-     */
-    default Class<? extends Permittable> type() {
-        return this.getClass();
+public class PermissionInsufficientException extends RuntimeException {
+    public PermissionInsufficientException(String message) {
+        super(message);
     }
-
-    /**
-     * 通过id获取数据
-     * @param id
-     * @return
-     */
-    T findPermitById(ID id);
 }

@@ -1,4 +1,4 @@
-package com.wenyu.security.annotation;
+package com.wenyu7980.security.annotation;
 /**
  * Copyright wenyu
  *
@@ -15,7 +15,7 @@ package com.wenyu.security.annotation;
  * limitations under the License.
  */
 
-import com.wenyu.security.core.Permittable;
+import com.wenyu7980.security.core.Permittable;
 
 import java.lang.annotation.*;
 

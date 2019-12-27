@@ -1,4 +1,4 @@
-package com.wenyu.security;
+package com.wenyu7980.security.annotation;
 /**
  * Copyright wenyu
  *
@@ -15,24 +15,18 @@ package com.wenyu.security;
  * limitations under the License.
  */
 
-import com.wenyu.security.core.PermitAspect;
-import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
-import org.springframework.context.annotation.EnableAspectJAutoProxy;
-import org.springframework.context.annotation.Import;
-
 import java.lang.annotation.*;
 
 /**
- *
+ * 权限根属性
  * @author:wenyu
  * @date:2019/12/18
  */
-@Target(ElementType.TYPE)
+@Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-@AutoConfigurationPackage
-@Import(value = PermitAspect.class)
-@EnableAspectJAutoProxy
-public @interface EnableDataPermit {
+public @interface PermitRoot {
+    /** root类型 */
+    String type() default "";
 }
