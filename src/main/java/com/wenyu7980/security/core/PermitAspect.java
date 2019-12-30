@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.*;
 import java.text.MessageFormat;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 /**
@@ -45,7 +45,7 @@ import java.util.Optional;
 @Aspect
 public class PermitAspect implements ApplicationContextAware {
     /** 保存数据访问bean */
-    private Map<String, Permittable> permittableMap;
+    private List<Permittable> permittables;
 
     @Autowired
     private PermitConfig permitUserCheck;
@@ -198,7 +198,11 @@ public class PermitAspect implements ApplicationContextAware {
             throws NoSuchMethodException, IllegalAccessException,
             InvocationTargetException, InstantiationException,
             NoSuchFieldException {
-        Permittable permittable = this.permittableMap.get(clazz.getName());
+        Permittable permittable = this.permittables.stream()
+                .filter(permit -> clazz.isAssignableFrom(permit.type()))
+                .findFirst().orElseThrow(() -> new RuntimeException(
+                        MessageFormat.format("{0}没有Permittable相应的实现",
+                                clazz.getName())));
         Method method = permittable.getClass()
                 .getMethod("findPermitById", Object.class);
         Type[] types = permittable.type().getGenericInterfaces();
@@ -229,10 +233,9 @@ public class PermitAspect implements ApplicationContextAware {
     @Override
     public void setApplicationContext(ApplicationContext applicationContext)
             throws BeansException {
-        permittableMap = new HashMap<>(16);
-        for (Permittable permittable : applicationContext
-                .getBeansOfType(Permittable.class).values()) {
-            permittableMap.put(permittable.type().getName(), permittable);
-        }
+        this.permittables = new ArrayList<>();
+        this.permittables
+                .addAll(applicationContext.getBeansOfType(Permittable.class)
+                        .values());
     }
 }

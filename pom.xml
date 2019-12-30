@@ -11,7 +11,7 @@
     </parent>
     <groupId>com.wenyu7980</groupId>
     <artifactId>data-permit-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <name>data-permit-starter</name>
     <description>数据权限控制</description>
     <packaging>jar</packaging>
