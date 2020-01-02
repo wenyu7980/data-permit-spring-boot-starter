@@ -50,7 +50,7 @@ public class PermitAspect implements ApplicationContextAware {
     @Autowired
     private PermitConfig permitUserCheck;
 
-    @Pointcut("@annotation(com.wenyu.security.annotation.PermitMethod)")
+    @Pointcut("@annotation(com.wenyu7980.security.annotation.PermitMethod)")
     public void method() {
     }
 
@@ -205,7 +205,7 @@ public class PermitAspect implements ApplicationContextAware {
                                 clazz.getName())));
         Method method = permittable.getClass()
                 .getMethod("findPermitById", Object.class);
-        Type[] types = permittable.type().getGenericInterfaces();
+        Type[] types = clazz.getGenericInterfaces();
         Class<?> actual = null;
         for (int j = 0; j < types.length; j++) {
             if (Objects.equals(((ParameterizedType) types[j]).getRawType(),
