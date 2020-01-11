@@ -1,9 +1,8 @@
 package com.wenyu7980.security.core;
 
+import com.wenyu7980.security.annotation.Permit;
 import com.wenyu7980.security.annotation.PermitMethod;
-import com.wenyu7980.security.annotation.PermitRoot;
-import com.wenyu7980.security.annotation.PermitSuperior;
-import com.wenyu7980.security.annotation.PermitSuperiors;
+import com.wenyu7980.security.annotation.Permits;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
@@ -79,7 +78,7 @@ public class PermitAspect implements ApplicationContextAware {
             return;
         }
         if (!this.checkPermit(ret)) {
-            throw new PermissionInsufficientException(MessageFormat
+            throw this.permitUserCheck.exception(MessageFormat
                     .format(permitMethod.message(), joinPoint.getArgs()[0],
                             joinPoint.getSignature().getDeclaringType()
                                     .getSimpleName()));
@@ -115,69 +114,74 @@ public class PermitAspect implements ApplicationContextAware {
         // 数据类型
         Class<?> clazz = obj.getClass();
 
+        // 存储非root Permit
+        List<PermitWrapper> wrappers = new ArrayList<>();
         // 遍历属性
         Field[] fields = clazz.getDeclaredFields();
         for (int i = 0; i < fields.length; i++) {
             Field field = fields[i];
-            // 根
-            PermitRoot root = field.getAnnotation(PermitRoot.class);
-            if (Objects.nonNull(root)) {
-                field.setAccessible(true);
-                if (Objects.nonNull(field.get(obj))) {
-                    if (this.permitUserCheck
-                            .checkPermit(field.get(obj), root)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        // 属性上的supperior处理
-        for (int i = 0; i < fields.length; i++) {
-            Field field = fields[i];
-            // 上级资源
-            PermitSuperior superior = field.getAnnotation(PermitSuperior.class);
-            if (Objects.nonNull(superior)) {
+            Permit permit = field.getAnnotation(Permit.class);
+            if (Objects.nonNull(permit)) {
                 field.setAccessible(true);
                 Object value = field.get(obj);
-                if (Objects.isNull(value)) {
-                    continue;
-                }
-                if (value.getClass().isPrimitive() || value instanceof String) {
-                    // 基本数据类型或者String类型
-                    if (this.checkSuperior(superior.getClass(),
-                            field.get(obj))) {
-                        return true;
-                    }
-                } else {
-                    // 复杂数据类型
-                    if (this.checkPermit(field.get(obj))) {
-                        return true;
+                if (Objects.nonNull(value)) {
+                    if (!"".equals(permit.dynamic())) {
+                        // 动态
+                        Field dynamic = clazz
+                                .getDeclaredField(permit.dynamic());
+                        dynamic.setAccessible(true);
+                        wrappers.add(new PermitWrapper(permit,
+                                ((PermitDynamicType) dynamic.get(obj)).type(),
+                                value));
+                    } else {
+                        wrappers.add(new PermitWrapper(permit, value));
                     }
                 }
             }
         }
-        // 类注解校验
-        PermitSuperiors superiors = obj.getClass()
-                .getAnnotation(PermitSuperiors.class);
-        if (Objects.nonNull(superiors)) {
+        // 类型上权限注解
+        Permits permits = obj.getClass().getAnnotation(Permits.class);
+        if (Objects.nonNull(permits)) {
             out:
-            for (int i = 0; i < superiors.superiors().length; i++) {
-                PermitSuperior superior = superiors.superiors()[i];
-                // 获取参数
-                assert superior.names().length > 0 : MessageFormat
-                        .format("{0}的PermitSuperior的names属性不能为空",
-                                clazz.getName());
-                Object[] parameters = new Object[superior.names().length];
-                for (int j = 0; j < superior.names().length; j++) {
-                    Field field = clazz.getDeclaredField(superior.names()[j]);
+            for (int i = 0; i < permits.permits().length; i++) {
+                Permit permit = permits.permits()[i];
+                Object[] values = new Object[permit.names().length];
+                for (int j = 0; j < permit.names().length; j++) {
+                    Field field = clazz.getDeclaredField(permit.names()[j]);
                     field.setAccessible(true);
                     if (Objects.isNull(field.get(obj))) {
                         continue out;
                     }
-                    parameters[j] = field.get(obj);
+                    values[j] = field.get(obj);
                 }
-                // 校验
-                if (this.checkSuperior(superior.clazz(), parameters)) {
+                if (!"".equals(permit.dynamic())) {
+                    // 动态
+                    Field dynamic = clazz.getDeclaredField(permit.dynamic());
+                    dynamic.setAccessible(true);
+                    wrappers.add(new PermitWrapper(permit,
+                            ((PermitDynamicType) dynamic.get(obj)).type(),
+                            values));
+                } else {
+                    wrappers.add(new PermitWrapper(permit, values));
+                }
+            }
+        }
+        for (PermitWrapper wrapper : wrappers) {
+            // root
+            if (wrapper.permit.root()) {
+                if (this.permitUserCheck
+                        .checkPermit(wrapper.values[0], wrapper.permit)) {
+                    return true;
+                }
+            }
+            if (Objects.isNull(wrapper.clazz)) {
+                // 复杂类型
+                if (this.checkPermit(wrapper.values[0])) {
+                    return true;
+                }
+            } else {
+                // 非复杂类型
+                if (this.checkSuperior(wrapper.clazz, wrapper.values)) {
                     return true;
                 }
             }
@@ -237,5 +241,28 @@ public class PermitAspect implements ApplicationContextAware {
         this.permittables
                 .addAll(applicationContext.getBeansOfType(Permittable.class)
                         .values());
+    }
+
+    /**
+     * 权限限制包装
+     */
+    protected static class PermitWrapper {
+        private Permit permit;
+        private Object[] values;
+        private Class<? extends Permittable> clazz;
+
+        public PermitWrapper(Permit permit, Object... values) {
+            this.permit = permit;
+            this.clazz = Permittable.class.equals(permit.clazz()) ?
+                    null :
+                    permit.clazz();
+            this.values = values;
+        }
+
+        public PermitWrapper(Permit permit, Class clazz, Object... values) {
+            this.permit = permit;
+            this.clazz = clazz;
+            this.values = values;
+        }
     }
 }

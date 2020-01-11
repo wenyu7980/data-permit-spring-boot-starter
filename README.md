@@ -1,5 +1,7 @@
 # 数据权限控制
 
+v2.0.0
+
 作者：**wenyu** wenyu7980@163.com
 
 > 该项目为Maven项目，同时也是Spring stater，是基于Spring AOP开发的一个数据权限控制库。
@@ -32,15 +34,7 @@
 
   > 触发库注入
 
-+ PermitRoot
-
-  > 属性注解
-  >
-  > 数据归属的根资源，例如：用户，公司或者部门等。
-  >
-  > **type** 可以设置根资源的类型，例如：user，company等，可以自定义
-
-+ PermitSuperior
++ Permit
 
   > 属性注解
   >
@@ -50,15 +44,31 @@
   >
   > 如果被注解的属性，通过PermitConfig.isPrimitive检查为true的clazz必须赋值。
   >
-  > **clazz** 与该属性相关关联的Permittable的实现类
+  > **clazz** 关联数据查询服务类
   >
-  > **names** 如果是符合主键则使用该属性，names的值为属性名
+  > **names** 类上注解时，复合key时使用
+  >
+  > **dynamic**
+  >
+  > ​	动态关联数据查询服务类
+  >
+  > ​	由属性决定关联服务类
+  >
+  > ​	该属性的类型必须是{PermitDynamicType 的子类
+  >
+  > **root**
+  >
+  > ​	判断是否是根校验
+  >
+  > ​	如果是根校验会调用PermitConfig#checkPermit(Object, Permit)
+  >
+  > **type** 根校验的辅助属性
 
-+ PermitSuperiors
++ Permits
 
   > 类注解
   >
-  > 配合PermitSuperior使用
+  > 配合Permit使用
 
 + PermitMethod
 
@@ -111,24 +121,28 @@
   >      */
   >     boolean checkPermit(Object obj, PermitRoot root);
   > 
-  >     /**
-  >      * 是否是基础数据类型
-  >      * @param obj
+  >      /**
+  >      * 获取异常
+  >      * @param message
   >      * @return
   >      */
-  >     default boolean isPrimitive(@NonNull Object obj) {
-  >         return obj.getClass().isPrimitive() || obj instanceof String;
-  >     }
+  >     RuntimeException exception(String message);
   > }
   > ```
 
-#### 异常
++ PermitDynamicType
 
-+ PermissionInsufficientException
+  ```java
+  public interface PermitDynamicType {
+      /**
+       * 动态关联数据查询服务类
+       * @return
+       */
+      Class<? extends Permittable> type();
+  }
+  ```
 
-  > 权限不足时，抛出的异常
-
-
+  
 
 ### 例
 
@@ -138,7 +152,7 @@
 
 ```java
 public class User{
-    @PermitRoot
+    @Permit(root=true)
     private String id;
     // 省略其他属性和方法
 }
@@ -159,7 +173,7 @@ public class UserService implements Permittable<User,String> {
 ``` java
 public class Order{
     private String id;
-    @PermitSuperior(clazz=UserSerivce.class)
+    @Permit(clazz=UserSerivce.class)
     private String userId;
 }
 
@@ -178,13 +192,16 @@ public class OrderService implements Permittable<Order,String>{
 ```java
 @Component
 public class UserPermitConfig implements PermitConfig {
-	boolean checkPermit(Object obj,PermitRoot root){
+	public boolean checkPermit(Object obj,PermitRoot root){
         // 该例子中User的id属性将被传入,而root是User.id上的注解
         // return true则说明校验通过
         // return false 会继续检查，直至所有的检查都返回false，
         //   则抛出PermissionInsufficientException
         return true;
-    }    
+    }
+    public RuntimeException exception(String message){
+        return new RuntionException(message);
+    }
 } 
 ```
 

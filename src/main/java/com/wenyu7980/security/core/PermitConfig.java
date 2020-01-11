@@ -15,8 +15,7 @@ package com.wenyu7980.security.core;
  * limitations under the License.
  */
 
-import com.wenyu7980.security.annotation.PermitRoot;
-import org.springframework.lang.NonNull;
+import com.wenyu7980.security.annotation.Permit;
 
 /**
  * 数据权限校验接口，用户需要实现
@@ -30,17 +29,15 @@ public interface PermitConfig {
     /**
      * 校验
      * @param obj
-     * @param root
+     * @param permit
      * @return
      */
-    boolean checkPermit(Object obj, PermitRoot root);
+    boolean checkPermit(Object obj, Permit permit);
 
     /**
-     * 是否是基础数据类型
-     * @param obj
+     * 获取异常
+     * @param message
      * @return
      */
-    default boolean isPrimitive(@NonNull Object obj) {
-        return obj.getClass().isPrimitive() || obj instanceof String;
-    }
+    RuntimeException exception(String message);
 }

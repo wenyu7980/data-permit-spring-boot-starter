@@ -15,23 +15,18 @@ package com.wenyu7980.security.annotation;
  * limitations under the License.
  */
 
-import com.wenyu7980.security.core.Permittable;
-
 import java.lang.annotation.*;
 
 /**
- * 权限上级资源
+ * 配置
  * @author:wenyu
  * @date:2019/12/18
  */
-@Target(ElementType.FIELD)
+@Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-public @interface PermitSuperior {
-    /** 属性名 */
-    String[] names() default {};
-
-    /** 数据获取校验类 */
-    Class<? extends Permittable> clazz() default Permittable.class;
+public @interface Permits {
+    /** 上级资源 */
+    Permit[] permits() default {};
 }
